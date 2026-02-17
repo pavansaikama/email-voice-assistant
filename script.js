@@ -1,46 +1,78 @@
-function startVoice(){
+const startBtn = document.getElementById("startBtn");
+const statusText = document.getElementById("status");
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const recognition = new SpeechRecognition();
 
-    const recognition =
-        new (window.SpeechRecognition ||
-        window.webkitSpeechRecognition)();
+recognition.lang = "en-US";
+recognition.continuous = false;
 
-    recognition.lang = "en-US";
+let step = 0;
+let emailRecipient = "";
+let emailSubject = "";
+let emailMessage = "";
 
-    recognition.onresult = function(event){
+// Text-to-Speech Function
+function speak(text) {
+    const speech = new SpeechSynthesisUtterance(text);
+    speech.lang = "en-US";
+    window.speechSynthesis.speak(speech);
+}
 
-        const transcript =
-            event.results[0][0].transcript;
-
-        document.getElementById("message").value =
-            transcript;
-    };
-
+// Start Assistant
+startBtn.addEventListener("click", () => {
+    speak("Voice assistant activated. Please give a command.");
     recognition.start();
-}
+});
 
-function sendEmail(){
+// Voice Recognition Result
+recognition.onresult = function(event) {
+    const command = event.results[0][0].transcript.toLowerCase();
+    statusText.innerText = "You said: " + command;  
+    // Step 0: Main Commands
+    if (step === 0) {
+        if (command.includes("open inbox")) {
+            speak("Opening your Gmail inbox.");
+            window.open("https://mail.google.com/mail/u/0/#inbox", "_blank");
+        }
 
-    const data = {
+        else if (command.includes("send email")) {
+            speak("Who is the recipient?");
+            step = 1;
+            recognition.start();
+        }
 
-        receiver:
-            document.getElementById("receiver").value,
+        else {
+            speak("Sorry, I did not understand. Please try again.");
+        }
+    }
+    // Step 1: Recipient
+    else if (step === 1) {
+        emailRecipient = command.replace(/\s/g, "") + "@gmail.com";
+        speak("What is the subject?");
+        step = 2;
+        recognition.start();
+    }
 
-        subject:
-            document.getElementById("subject").value,
+    // Step 2: Subject
+    else if (step === 2) {
+        emailSubject = command;
+        speak("What is the message?");
+        step = 3;
+        recognition.start();
+    }
+    // Step 3: Message
+    else if (step === 3) {
+        emailMessage = command;
+        speak("Composing your email.");
+        
+        const mailtoLink = `mailto:${emailRecipient}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailMessage)}`;
+        window.location.href = mailtoLink;
 
-        message:
-            document.getElementById("message").value
-    };
-
-    fetch("http://127.0.0.1:5000/send-email",{
-
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify(data)
-    })
-    .then(res=>res.json())
-    .then(data=>{
-        document.getElementById("status").innerText =
-            data.status;
-    });
-}
+        step = 0; // Reset assistant
+    }
+};
+// Handle Errors
+recognition.onerror = function(event) {
+    speak("There was an error. Please try again.");
+};
+    
